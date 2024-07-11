@@ -38,26 +38,13 @@
             catCanvas.width = catImage.width / 2;
             catCanvas.height = catImage.height / 2;
             catCtx.drawImage(catImage, 0, 0, catCanvas.width, catCanvas.height);
+            createCatPath();
+        };
 
+        function createCatPath() {
             const imageData = catCtx.getImageData(0, 0, catCanvas.width, catCanvas.height);
             const data = imageData.data;
 
-            // 불필요한 픽셀 제거
-            for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] === 0) {
-                    data[i] = 0;
-                    data[i + 1] = 0;
-                    data[i + 2] = 0;
-                    data[i + 3] = 0;
-                }
-            }
-
-            catCtx.putImageData(imageData, 0, 0);
-            createTransparentPath(imageData);
-        };
-
-        function createTransparentPath(imageData) {
-            const data = imageData.data;
             catCtx.beginPath();
             for (let y = 0; y < imageData.height; y++) {
                 for (let x = 0; x < imageData.width; x++) {
@@ -158,16 +145,6 @@
             }
         }
 
-        function isPointInCat(x, y, imageData, catRect) {
-            const catX = x - catRect.left;
-            const catY = y - (canvas.height - catRect.bottom);
-            if (catX >= 0 && catX < imageData.width && catY >= 0 && catY < imageData.height) {
-                const index = (Math.floor(catY) * imageData.width + Math.floor(catX)) * 4;
-                return imageData.data[index + 3] > 0; // 알파 값이 0보다 크면 고양이 이미지 내의 점
-            }
-            return false;
-        }
-
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -226,8 +203,7 @@
                 }
 
                 const catRect = catCanvas.getBoundingClientRect();
-                const imageData = catCtx.getImageData(0, 0, catCanvas.width, catCanvas.height);
-                if (isPointInCat(drop.x, drop.y + drop.length, imageData, catRect)) {
+                if (catCtx.isPointInPath(drop.x - catRect.left, drop.y + drop.length - (canvas.height - catRect.bottom))) {
                     createSplash(drop.x, drop.y + drop.length);
                     dropsToRemove.push(index);
                 }
