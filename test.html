@@ -3,60 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Rain Animation with Cat Image</title>
+    <title>고양이 이미지와 비 효과</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #05006b;
-            cursor: none; /* 마우스 커서 숨기기 */
+            cursor: none;
         }
-        #cat-canvas {
-            position: absolute;
-            bottom: 0; /* 고양이 이미지를 하단에 배치 */
-            left: 50%;
-            transform: translateX(-50%);
-            pointer-events: none; /* 마우스 이벤트 비활성화 */
+        canvas {
+            display: block;
         }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <canvas id="cat-canvas"></canvas>
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-
-        const catCanvas = document.getElementById('cat-canvas');
-        const catCtx = catCanvas.getContext('2d');
-
-        const catImage = new Image();
-        catImage.src = 'cat.png'; // 고양이 이미지 경로 (HTML 파일과 같은 경로)
-        catImage.onload = () => {
-            catCanvas.width = catImage.width / 2;
-            catCanvas.height = catImage.height / 2;
-            catCtx.drawImage(catImage, 0, 0, catCanvas.width, catCanvas.height);
-            createCatPath();
-        };
-
-        function createCatPath() {
-            const imageData = catCtx.getImageData(0, 0, catCanvas.width, catCanvas.height);
-            const data = imageData.data;
-
-            catCtx.beginPath();
-            for (let y = 0; y < imageData.height; y++) {
-                for (let x = 0; x < imageData.width; x++) {
-                    const i = (y * imageData.width + x) * 4;
-                    if (data[i + 3] > 0) {
-                        catCtx.lineTo(x, y);
-                    }
-                }
-            }
-            catCtx.closePath();
-            catCtx.clip();
-        }
 
         const numDrops = 500;
         const drops = [];
@@ -71,6 +37,15 @@
         let currentTrail = null;
         let hue = 0;
         let lastMouseMoveTime = 0;
+
+        const catImage = new Image();
+        catImage.src = '/mnt/data/cat.png'; // 고양이 이미지 경로를 확인하세요
+        const cat = { x: canvas.width / 2 - 75, y: canvas.height - 200, width: 150, height: 150 }; // 고양이 이미지의 위치 및 크기
+
+        catImage.onload = () => {
+            // 고양이 이미지가 로드된 후에 그리기 작업을 시작합니다
+            draw();
+        };
 
         for (let i = 0; i < numDrops; i++) {
             const opacity = Math.random() * 0.5 + 0.1;
@@ -148,6 +123,9 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // 고양이 이미지를 그리기
+            ctx.drawImage(catImage, cat.x, cat.y, cat.width, cat.height);
+
             trails.forEach((trail, index) => {
                 let alpha = 1;
                 if (trail.fadeOut) {
@@ -175,6 +153,7 @@
 
             drops.forEach((drop, index) => {
                 drawRainDrop(drop);
+
                 drop.y += drop.speed;
 
                 if (drop.y > canvas.height) {
@@ -195,17 +174,20 @@
                     dropsToRemove.push(index);
                 }
 
+                // 고양이 이미지와 충돌 검사
+                if (
+                    drop.x > cat.x && drop.x < cat.x + cat.width &&
+                    drop.y + drop.length > cat.y && drop.y + drop.length < cat.y + cat.height
+                ) {
+                    createSplash(drop.x, drop.y + drop.length);
+                    dropsToRemove.push(index);
+                }
+
                 if (mouseX !== undefined && mouseY !== undefined) {
                     if (isPointInShape(drop.x, drop.y + drop.length, mouseX, mouseY, circleRadius, shapeType === 0 ? 0 : shapeType + 2)) {
                         createSplash(drop.x, drop.y + drop.length);
                         dropsToRemove.push(index);
                     }
-                }
-
-                const catRect = catCanvas.getBoundingClientRect();
-                if (catCtx.isPointInPath(drop.x - catRect.left, drop.y + drop.length - (canvas.height - catRect.bottom))) {
-                    createSplash(drop.x, drop.y + drop.length);
-                    dropsToRemove.push(index);
                 }
             });
 
@@ -305,8 +287,6 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         });
-
-        draw();
 
         function createSplash(x, y) {
             for (let i = 0; i < 10; i++) {
