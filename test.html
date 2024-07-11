@@ -42,12 +42,13 @@
         catImage.src = 'cat.png'; // 고양이 이미지 경로를 확인하세요
         const cat = { x: canvas.width / 2 - 75, y: canvas.height - 200, width: 150, height: 150 }; // 고양이 이미지의 위치 및 크기
 
-        let catImageData;
+        let catOutline = [];
 
         catImage.onload = () => {
             // 고양이 이미지가 로드된 후에 그리기 작업을 시작합니다
             ctx.drawImage(catImage, cat.x, cat.y, cat.width, cat.height);
-            catImageData = ctx.getImageData(cat.x, cat.y, cat.width, cat.height);
+            const catImageData = ctx.getImageData(cat.x, cat.y, cat.width, cat.height);
+            catOutline = extractOutline(catImageData);
             draw();
         };
 
@@ -62,6 +63,33 @@
                 speed: baseSpeed - (width - 1.5) * 2,
                 width: width,
             });
+        }
+
+        function extractOutline(imageData) {
+            const outline = [];
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    const alpha = data[index + 3];
+                    if (alpha > 128) {
+                        if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+                            outline.push({ x: x + cat.x, y: y + cat.y });
+                        } else {
+                            const leftAlpha = data[index - 4 + 3];
+                            const rightAlpha = data[index + 4 + 3];
+                            const topAlpha = data[index - width * 4 + 3];
+                            const bottomAlpha = data[index + width * 4 + 3];
+                            if (leftAlpha <= 128 || rightAlpha <= 128 || topAlpha <= 128 || bottomAlpha <= 128) {
+                                outline.push({ x: x + cat.x, y: y + cat.y });
+                            }
+                        }
+                    }
+                }
+            }
+            return outline;
         }
 
         function drawRainDrop(drop) {
@@ -124,24 +152,6 @@
             }
         }
 
-        function isCatBodyPixel(x, y) {
-            const localX = x - cat.x;
-            const localY = y - cat.y;
-
-            if (localX < 0 || localY < 0 || localX >= cat.width || localY >= cat.height) {
-                return false;
-            }
-
-            const index = (localY * cat.width + localX) * 4;
-            const r = catImageData.data[index];
-            const g = catImageData.data[index + 1];
-            const b = catImageData.data[index + 2];
-            const a = catImageData.data[index + 3];
-
-            // 고양이 몸의 색상 또는 불투명도를 기준으로 판단 (여기서는 예시로 불투명도 기준)
-            return a > 128; // 알파 값이 128보다 크면 고양이 몸 부분으로 간주
-        }
-
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -195,11 +205,13 @@
                     dropsToRemove.push(index);
                 }
 
-                // 고양이 이미지의 몸 부분과 충돌 검사
-                if (isCatBodyPixel(drop.x, drop.y + drop.length)) {
-                    createSplash(drop.x, drop.y + drop.length);
-                    dropsToRemove.push(index);
-                }
+                // 고양이 윤곽선과 충돌 검사
+                catOutline.forEach((outlinePoint) => {
+                    if (Math.abs(drop.x - outlinePoint.x) < 5 && Math.abs(drop.y + drop.length - outlinePoint.y) < 5) {
+                        createSplash(drop.x, drop.y + drop.length);
+                        dropsToRemove.push(index);
+                    }
+                });
 
                 if (mouseX !== undefined && mouseY !== undefined) {
                     if (isPointInShape(drop.x, drop.y + drop.length, mouseX, mouseY, circleRadius, shapeType === 0 ? 0 : shapeType + 2)) {
